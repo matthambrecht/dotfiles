@@ -20,4 +20,4 @@ vim.keymap.set({ "n", "v" }, "<C-w>%", "<cmd>vsp<CR>")
 vim.keymap.set({ "n", "v" }, "<C-s>", "<cmd>w<CR>")
 
 --- Paste without overwriting the default register
-vim.keymap.set("x", "p", '"_dP')
+vim.keymap.set("x", "p", "P")
