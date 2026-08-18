@@ -45,7 +45,13 @@ return {
 			}),
 			-- sources for autocompletion
 			sources = cmp.config.sources({
-				{ name = "nvim_lsp" },
+				{
+					name = "nvim_lsp",
+					entry_filter = function(entry)
+						-- plain word suggestions from the server add noise
+						return entry:get_kind() ~= cmp.lsp.CompletionItemKind.Text
+					end,
+				},
 				{ name = "luasnip" }, -- snippets
 				{ name = "buffer" }, -- text within current buffer
 				{ name = "path" }, -- file system paths
