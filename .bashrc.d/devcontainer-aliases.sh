@@ -133,16 +133,18 @@ _devu_bootstrap() {
     # Idempotent: only install names that resolve to missing binaries on PATH.
     local missing_bin=""
     for pkg in $DEVU_SYSTEM_DEPS; do
-        local bin
+        local check
         case "$pkg" in
-            python3-pip) bin=pip3 ;;
-            python3-venv) bin=python3 ;;  # venv is a python3 module; presence implied by python3
-            ripgrep) bin=rg ;;
-            golang-go) bin=go ;;
-            bat) bin='bat || command -v batcat' ;;  # Debian ships bat as 'batcat'
-            *) bin="$pkg" ;;
+            python3-pip) check="command -v pip3" ;;
+            # Debian images ship python3 without ensurepip, so probe the module
+            # itself; Mason pip packages need it to create venvs
+            python3-venv) check="python3 -c 'import ensurepip'" ;;
+            ripgrep) check="command -v rg" ;;
+            golang-go) check="command -v go" ;;
+            bat) check="command -v bat || command -v batcat" ;;  # Debian ships bat as 'batcat'
+            *) check="command -v $pkg" ;;
         esac
-        devcontainer exec --workspace-folder "$ws" sh -c "command -v $bin >/dev/null" \
+        devcontainer exec --workspace-folder "$ws" sh -c "{ $check ; } >/dev/null 2>&1" \
             || missing_bin="$missing_bin $pkg"
     done
     if [ -n "$missing_bin" ]; then
