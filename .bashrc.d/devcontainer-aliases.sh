@@ -9,6 +9,7 @@
 : "${DEVU_NODE_VERSION:=v22.11.0}"  # used when the container has no node/npm
 : "${DEVU_SYSTEM_DEPS:=unzip python3 python3-pip python3-venv ripgrep tmux bat fzf gcc golang-go}"  # apt names; skipped if no sudo/apt. gcc: compiles treesitter parsers; golang-go: Mason needs go for gopls
 : "${DEVU_BASHRC_D_EXCLUDE:=devcontainer-aliases.sh}"  # space-separated filenames in ~/.bashrc.d/ to skip
+: "${DEVU_GIT_CRED_HOSTS:=github.com gitlab.tools.basedweights.com huggingface.co}"  # https hosts whose creds get exported from the host credential helper
 
 _devu_container_id() {
     # devcontainer CLI labels the container with the absolute workspace path.
@@ -127,6 +128,71 @@ _devu_bootstrap() {
     if [ -d "$HOME/.config/github-copilot" ]; then
         echo "devu:   copying github-copilot creds"
         _devu_cp "$ws" "$cid" "$user" "$HOME/.config/github-copilot" "$home/.config/github-copilot"
+    fi
+
+    # ---------- git config ----------
+    if [ -f "$HOME/.gitconfig" ] || [ -d "$HOME/.config/git" ]; then
+        echo "devu:   copying git config"
+        _devu_cp "$ws" "$cid" "$user" "$HOME/.gitconfig" "$home/.gitconfig"
+        _devu_cp "$ws" "$cid" "$user" "$HOME/.config/git" "$home/.config/git"
+        # host credential helpers (gcm, keyring) don't exist in the container
+        devcontainer exec --workspace-folder "$ws" sh -c "
+            command -v git >/dev/null 2>&1 || exit 0
+            git config --global --unset-all credential.helper 2>/dev/null
+            git config --global --unset-all credential.credentialStore 2>/dev/null
+            git config --global --add safe.directory \"\$(pwd)\"
+            true
+        "
+    fi
+
+    # ---------- ssh keys (git auth) ----------
+    if [ -d "$HOME/.ssh" ]; then
+        echo "devu:   copying ssh keys"
+        _devu_cp "$ws" "$cid" "$user" "$HOME/.ssh" "$home/.ssh"
+        # no ssh agent in the container, so list every key as an identity candidate
+        devcontainer exec --workspace-folder "$ws" sh -c "
+            chmod 700 '$home/.ssh' 2>/dev/null
+            chmod 600 '$home/.ssh'/* 2>/dev/null
+            chmod 644 '$home/.ssh'/*.pub 2>/dev/null
+            cfg='$home/.ssh/config'
+            if ! grep -q 'devu identities' \"\$cfg\" 2>/dev/null; then
+                {
+                    printf '\n# devu identities\nHost *\n'
+                    for pub in '$home/.ssh/'*.pub; do
+                        key=\"\${pub%.pub}\"
+                        [ -f \"\$key\" ] && printf '    IdentityFile %s\n' \"\$key\"
+                    done
+                } >> \"\$cfg\"
+            fi
+            chown '$user' \"\$cfg\" 2>/dev/null
+            true
+        "
+    fi
+
+    # ---------- https git credentials ----------
+    # Pulls creds out of the host credential helper (gcm/keyring) and writes them
+    # to a plaintext store in the container. Hosts with nothing stored are skipped.
+    if command -v git >/dev/null 2>&1 && [ -n "$DEVU_GIT_CRED_HOSTS" ]; then
+        local credtmp credhost filled
+        credtmp="$(mktemp)"
+        for credhost in $DEVU_GIT_CRED_HOSTS; do
+            filled="$(printf 'protocol=https\nhost=%s\n\n' "$credhost" | \
+                GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never git credential fill 2>/dev/null)" || continue
+            printf '%s\n\n' "$filled" | GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+                git -c "credential.helper=store --file=$credtmp" credential approve 2>/dev/null
+        done
+        if [ -s "$credtmp" ]; then
+            echo "devu:   copying https git credentials"
+            docker cp "$credtmp" "$cid:$home/.git-credentials" >/dev/null 2>&1 \
+                || echo "devu:   warning: copy of .git-credentials failed — continuing"
+            devcontainer exec --workspace-folder "$ws" sh -c "
+                chown '$user' '$home/.git-credentials' 2>/dev/null
+                chmod 600 '$home/.git-credentials' 2>/dev/null
+                command -v git >/dev/null 2>&1 && git config --global credential.helper store
+                true
+            "
+        fi
+        rm -f "$credtmp"
     fi
 
     # ---------- system deps for Mason etc. (unzip, python3, pip, rg) ----------
