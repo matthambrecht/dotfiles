@@ -9,7 +9,7 @@ vim.cmd.colorscheme("theme")
 --- Line Numbers
 vim.wo.number = true
 vim.wo.relativenumber = true
-vim.wo.signcolumn = "yes"
+vim.wo.signcolumn = "yes:2"
 
 --- Spacing
 vim.opt.tabstop = 4

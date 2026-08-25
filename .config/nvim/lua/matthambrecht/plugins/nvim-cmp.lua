@@ -25,10 +25,22 @@ return {
 		-- loads vscode style snippets from installed plugins (e.g. friendly-snippets)
 		require("luasnip.loaders.from_vscode").lazy_load()
 
+		-- rank private/dunder members below public ones
+		local function under_compare(entry1, entry2)
+			local _, under1 = entry1.completion_item.label:find("^_+")
+			local _, under2 = entry2.completion_item.label:find("^_+")
+			under1 = under1 or 0
+			under2 = under2 or 0
+			if under1 ~= under2 then
+				return under1 < under2
+			end
+		end
+
 		cmp.setup({
 			completion = {
-				completeopt = "menu,menuone,preview,noselect",
+				completeopt = "menu,menuone,noinsert",
 			},
+			preselect = cmp.PreselectMode.Item,
 			snippet = { -- configure how nvim-cmp interacts with snippet engine
 				expand = function(args)
 					luasnip.lsp_expand(args.body)
@@ -44,6 +56,8 @@ return {
 				["<CR>"] = cmp.mapping.confirm({ select = false }),
 			}),
 			-- sources for autocompletion
+			-- buffer/path live in a fallback group so plain buffer words
+			-- only show up when the LSP has nothing to offer
 			sources = cmp.config.sources({
 				{
 					name = "nvim_lsp",
@@ -53,9 +67,25 @@ return {
 					end,
 				},
 				{ name = "luasnip" }, -- snippets
-				{ name = "buffer" }, -- text within current buffer
+			}, {
+				{ name = "buffer", keyword_length = 3, max_item_count = 5 },
 				{ name = "path" }, -- file system paths
 			}),
+
+			sorting = {
+				comparators = {
+					cmp.config.compare.offset,
+					cmp.config.compare.exact,
+					cmp.config.compare.score,
+					cmp.config.compare.recently_used,
+					cmp.config.compare.locality,
+					under_compare,
+					cmp.config.compare.kind,
+					cmp.config.compare.sort_text,
+					cmp.config.compare.length,
+					cmp.config.compare.order,
+				},
+			},
 
 			-- configure lspkind for vs-code like pictograms in completion menu
 			formatting = {
@@ -64,6 +94,22 @@ return {
 					ellipsis_char = "...",
 				}),
 			},
+		})
+
+		-- cmp only auto-triggers on typed chars, so reopen the menu after
+		-- deletions when the cursor still sits at the end of a word
+		vim.api.nvim_create_autocmd("TextChangedI", {
+			group = vim.api.nvim_create_augroup("CmpCompleteOnDelete", {}),
+			callback = function()
+				if cmp.visible() then
+					return
+				end
+				local col = vim.api.nvim_win_get_cursor(0)[2]
+				local char_before = vim.api.nvim_get_current_line():sub(col, col)
+				if char_before:match("[%w_]") then
+					cmp.complete({ reason = cmp.ContextReason.Auto })
+				end
+			end,
 		})
 	end,
 }

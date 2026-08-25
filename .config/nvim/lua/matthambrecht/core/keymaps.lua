@@ -3,7 +3,7 @@
 vim.keymap.set({ "n", "v" }, "<leader>ff", "<cmd>Telescope find_files hidden=true<CR>")
 vim.keymap.set({ "n", "v" }, "<leader>fw", "<cmd>Telescope live_grep<CR>")
 vim.keymap.set({ "n", "v" }, "<leader>fd", "<cmd>Telescope lsp_definitions<CR>")
-vim.keymap.set({ "n", "v" }, "<leader>fs", "<cmd>Telescope lsp_workspace_symbols<CR>")
+vim.keymap.set({ "n", "v" }, "<leader>fs", "<cmd>Telescope lsp_dynamic_workspace_symbols<CR>")
 vim.keymap.set({ "n", "v" }, "<leader>b", "<cmd>Neotree toggle<CR>")
 
 --- Buffer Keybinds
