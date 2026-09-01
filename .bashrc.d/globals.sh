@@ -2,3 +2,5 @@ export QT_STYLE_OVERRIDE=Fusion
 export QT_QPA_PLATFORMTHEME=qt5ct
 export ENABLE_LSP_TOOL=1
 export KUBE_EDITOR=vim
+export GPG_TTY=$(tty)
+
