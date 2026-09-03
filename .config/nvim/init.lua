@@ -3,7 +3,7 @@
 ------------------------------
 
 -- Requirements
-require("matthambrecht.core")
+require("config.core")
 
 -- Plugins
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"  -- ~/.local/share/nvim/lazy/lazy.nvim
@@ -16,7 +16,7 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
-    {import="matthambrecht.plugins"},
-    {import="matthambrecht.plugins.lsp"},
+    {import="config.plugins"},
+    {import="config.plugins.lsp"},
 })
 
