@@ -3,3 +3,5 @@
 node_modules/
 .env
 *.log
+.agents/skills/*/node_modules
+.agents/AGENTS.md

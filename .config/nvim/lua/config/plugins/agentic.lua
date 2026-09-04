@@ -2,6 +2,13 @@ return {
 	"carlos-algms/agentic.nvim",
 	opts = {
 		provider = "claude-agent-acp",
+		acp_providers = {
+			["platform-acp"] = {
+				name = "Platform ACP",
+				command = "acp-bridge",
+				args = { "serve", "--platform", "http://127.0.0.1:8080", "--agent", "default/hermes-platform-facade" },
+			},
+		},
 		keymaps = {
 			widget = {
 				switch_model = "<leader>am",
