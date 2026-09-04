@@ -4,13 +4,52 @@
 # Host-side config you want copied into every container. Override in env if needed.
 : "${DEVU_NVIM_CONFIG:=$HOME/.config/nvim}"
 : "${DEVU_NVIM_VERSION:=latest}"   # 'latest', 'stable', 'nightly', or a tag like v0.10.2
-: "${DEVU_NPM_GLOBALS:=@anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp \
-@openai/codex @zed-industries/codex-acp @github/copilot tree-sitter-cli}"
+: "${DEVU_NODE_MANIFEST:=}"  # defaults to package.json beside the installed dotfiles
 : "${DEVU_AGENT_DIRS:=skills hooks}"  # subdirs copied for each agent config dir (~/.claude ~/.codex ~/.copilot)
 : "${DEVU_NODE_VERSION:=v22.11.0}"  # used when the container has no node/npm
 : "${DEVU_SYSTEM_DEPS:=unzip python3 python3-pip python3-venv ripgrep tmux bat fzf gcc golang-go}"  # apt names; skipped if no sudo/apt. gcc: compiles treesitter parsers; golang-go: Mason needs go for gopls
 : "${DEVU_BASHRC_D_EXCLUDE:=devcontainer-aliases.sh}"  # space-separated filenames in ~/.bashrc.d/ to skip
 : "${DEVU_GIT_CRED_HOSTS:=github.com gitlab.tools.basedweights.com huggingface.co}"  # https hosts whose creds get exported from the host credential helper
+
+_devu_npm_globals() {
+    local manifest="$DEVU_NODE_MANIFEST"
+    local source_dir packages
+
+    if [ -z "$manifest" ]; then
+        source_dir="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+        if [ -f "$source_dir/../package.json" ]; then
+            manifest="$source_dir/../package.json"
+        elif [ -f "$HOME/package.json" ]; then
+            manifest="$HOME/package.json"
+        fi
+    fi
+
+    if [ -z "$manifest" ] || [ ! -r "$manifest" ]; then
+        echo "devu: Node manifest not found; set DEVU_NODE_MANIFEST to package.json" >&2
+        return 1
+    fi
+    if ! command -v node >/dev/null 2>&1; then
+        echo "devu: host Node is required to read $manifest" >&2
+        return 1
+    fi
+
+    packages="$(node -e '
+        const manifest = require(process.argv[1]);
+        const dependencies = {
+            ...manifest.dependencies,
+            ...manifest.devDependencies,
+        };
+        const specs = Object.entries(dependencies).map(
+            ([name, version]) => `${name}@${version}`,
+        );
+        if (specs.length === 0) process.exit(1);
+        process.stdout.write(specs.join(" "));
+    ' "$manifest" 2>/dev/null)" || {
+        echo "devu: could not read Node dependencies from $manifest" >&2
+        return 1
+    }
+    printf '%s\n' "$packages"
+}
 
 _devu_container_id() {
     # devcontainer CLI labels the container with the absolute workspace path.
@@ -363,18 +402,14 @@ _devu_bootstrap() {
 
     # ---------- npm globals (claude, codex, ...) ----------
     if devcontainer exec --workspace-folder "$ws" sh -c "PATH='$home/.local/bin:\$PATH' command -v npm >/dev/null"; then
-        # Check what's missing — only install if any package's binary is absent.
-        local need=""
-        for pkg in $DEVU_NPM_GLOBALS; do
-            local bin
-            case "$pkg" in
-                @anthropic-ai/claude-code) bin=claude ;;
-                @openai/codex) bin=codex ;;
-                @github/copilot) bin=copilot ;;
-                *) bin="${pkg##*/}" ; bin="${bin%-cli}" ;;
-            esac
-            if ! devcontainer exec --workspace-folder "$ws" sh -c \
-                "PATH='$home/.local/bin:\$PATH' command -v $bin >/dev/null"; then
+        # Install packages that are missing or at a different manifest version.
+        local npm_globals need=""
+        npm_globals="$(_devu_npm_globals)" || return 1
+        for pkg in $npm_globals; do
+            if ! devcontainer exec --workspace-folder "$ws" sh -c "
+                export PATH='$home/.local/bin:\$PATH'
+                npm list --global --depth=0 '$pkg' >/dev/null 2>&1
+            "; then
                 need="$need $pkg"
             fi
         done
