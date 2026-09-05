@@ -9,7 +9,43 @@
       "skillFolderHash": "fdda6a87b3d8b51eb463164dc481ede49774a0d6",
       "installedAt": "2026-09-02T15:56:24.726Z",
       "updatedAt": "2026-09-02T15:56:24.726Z"
+    },
+    "manimce-best-practices": {
+      "source": "adithya-s-k/manim_skill",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/adithya-s-k/manim_skill.git",
+      "skillPath": "skills/manimce-best-practices/SKILL.md",
+      "skillFolderHash": "12f05bc0b33394aa665dea9720e32ebb9b9dda92",
+      "installedAt": "2026-09-05T02:42:11.109Z",
+      "updatedAt": "2026-09-05T02:42:11.109Z"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/skills.git",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "skillFolderHash": "76a98a285cb0434f3d39e1a873823556330e398b",
+      "installedAt": "2026-09-05T02:42:20.075Z",
+      "updatedAt": "2026-09-05T02:42:20.075Z"
     }
   },
-  "dismissed": {}
+  "dismissed": {
+    "findSkillsPrompt": true
+  },
+  "lastSelectedAgents": [
+    "amp",
+    "antigravity",
+    "antigravity-cli",
+    "cline",
+    "codex",
+    "cursor",
+    "deepagents",
+    "gemini-cli",
+    "github-copilot",
+    "kimi-code-cli",
+    "opencode",
+    "warp",
+    "zed",
+    "claude-code"
+  ]
 }
